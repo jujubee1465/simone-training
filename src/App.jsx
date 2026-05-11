@@ -13,6 +13,18 @@ const AMBER_LIGHT = "#fdf3e0";
 const CORAL = "#c0392b";
 const CORAL_LIGHT = "#fdf0ee";
 
+// ─── RESPONSIVE HOOK ─────────────────────────────────────────────────────────
+
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 640);
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth < 640);
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, []);
+  return isMobile;
+}
+
 // ─── SUPABASE HELPERS ────────────────────────────────────────────────────────
 
 async function dbLoad() {
@@ -42,7 +54,6 @@ async function dbSave(id, block_id, day_id, exercise_index, week, value) {
 function makeId(blockId, dayId, exIdx, wk) {
   return `${blockId}__${dayId}__${exIdx}__${wk}`;
 }
-
 // ─── DEFAULT DATA ────────────────────────────────────────────────────────────
 
 const DEFAULT_BLOCKS = [
@@ -192,13 +203,13 @@ function EditableCell({ value, onChange, color, saving }) {
         onChange={e => setLocal(e.target.value)}
         onBlur={commit}
         onKeyDown={e => { if (e.key === "Enter") commit(); if (e.key === "Escape") { setLocal(value); setEditing(false); } }}
-        style={{ width: "100%", minWidth: 60, border: `2px solid ${color}`, borderRadius: 5, padding: "3px 7px", fontSize: 13, background: "#fff", outline: "none", fontFamily: "sans-serif", color: "#111", textAlign: "center" }}
+        style={{ width: "100%", minWidth: 52, border: `2px solid ${color}`, borderRadius: 5, padding: "4px 6px", fontSize: 14, background: "#fff", outline: "none", fontFamily: "sans-serif", color: "#111", textAlign: "center" }}
       />
     );
   }
   return (
-    <span onClick={() => { setLocal(value); setEditing(true); }} title="Click to edit"
-      style={{ cursor: "text", display: "inline-block", padding: "3px 8px", borderRadius: 4, border: "1.5px dashed transparent", fontSize: 13, fontFamily: "sans-serif", whiteSpace: "nowrap", transition: "all 0.12s", opacity: saving ? 0.5 : 1 }}
+    <span onClick={() => { setLocal(value); setEditing(true); }} title="Tap to edit"
+      style={{ cursor: "text", display: "inline-block", padding: "4px 8px", borderRadius: 4, border: "1.5px dashed transparent", fontSize: 13, fontFamily: "sans-serif", whiteSpace: "nowrap", transition: "all 0.12s", opacity: saving ? 0.5 : 1, minHeight: 32, lineHeight: "24px" }}
       onMouseEnter={e => { e.currentTarget.style.borderColor = color; e.currentTarget.style.background = "#f5fdf9"; }}
       onMouseLeave={e => { e.currentTarget.style.borderColor = "transparent"; e.currentTarget.style.background = "transparent"; }}
     >{value || "—"}</span>
@@ -207,8 +218,35 @@ function EditableCell({ value, onChange, color, saving }) {
 
 // ─── EXERCISE TABLE ──────────────────────────────────────────────────────────
 
-function ExerciseTable({ exercises, blockColor, blockId, dayId, onEdit, savingSet }) {
-  const wks = [{ k: "wk1", l: "Week 1" },{ k: "wk2", l: "Week 2" },{ k: "wk3", l: "Week 3" },{ k: "wk4", l: "Week 4 ↓", muted: true }];
+function ExerciseTable({ exercises, blockColor, blockId, dayId, onEdit, savingSet, isMobile }) {
+  const wks = [{ k: "wk1", l: "Wk 1" },{ k: "wk2", l: "Wk 2" },{ k: "wk3", l: "Wk 3" },{ k: "wk4", l: "Wk 4 ↓", muted: true }];
+  if (isMobile) {
+    return (
+      <div style={{ padding: "8px 0" }}>
+        {exercises.map((ex, ei) => (
+          <div key={ex.id} style={{ borderBottom: "1px solid #f2efe9", padding: "10px 14px", background: ei % 2 === 0 ? "#fff" : "#fdfcfb" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+              <div style={{ fontFamily: "sans-serif", fontWeight: 700, fontSize: 13, color: "#1a1a1a", flex: 1, paddingRight: 8 }}>{ex.name}</div>
+              <div style={{ fontFamily: "sans-serif", fontSize: 11, color: "#999", whiteSpace: "nowrap" }}>{ex.sets}</div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 4, marginBottom: ex.notes ? 6 : 0 }}>
+              {wks.map(w => (
+                <div key={w.k} style={{ textAlign: "center" }}>
+                  <div style={{ fontFamily: "sans-serif", fontSize: 9, fontWeight: 700, color: w.muted ? `${blockColor}88` : blockColor, textTransform: "uppercase", marginBottom: 2 }}>{w.l}</div>
+                  <EditableCell
+                    value={ex[w.k]} color={blockColor}
+                    saving={savingSet.has(makeId(blockId, dayId, ei, w.k))}
+                    onChange={v => onEdit(blockId, dayId, ei, w.k, v)}
+                  />
+                </div>
+              ))}
+            </div>
+            {ex.notes && <div style={{ fontFamily: "sans-serif", fontSize: 11, color: "#b0aaa0", fontStyle: "italic" }}>{ex.notes}{ex.unit ? ` · ${ex.unit}` : ""}</div>}
+          </div>
+        ))}
+      </div>
+    );
+  }
   return (
     <div style={{ overflowX: "auto" }}>
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
@@ -261,7 +299,7 @@ function SaveBadge({ status }) {
     error:  { bg: "#fdf0ee",      color: CORAL,          text: "⚠ Save failed" },
   }[status];
   return (
-    <div style={{ fontFamily: "sans-serif", fontSize: 12, fontWeight: 600, color: cfg.color, background: cfg.bg, padding: status === "idle" ? 0 : "4px 12px", borderRadius: 999, transition: "all 0.2s", minWidth: 90, textAlign: "center" }}>
+    <div style={{ fontFamily: "sans-serif", fontSize: 12, fontWeight: 600, color: cfg.color, background: cfg.bg, padding: status === "idle" ? 0 : "4px 12px", borderRadius: 999, transition: "all 0.2s", minWidth: 80, textAlign: "center", whiteSpace: "nowrap" }}>
       {cfg.text}
     </div>
   );
@@ -278,9 +316,9 @@ function Progressions() {
             <div style={{ width: 3, height: 18, background: TEAL_MID, borderRadius: 2 }} />
             <span style={{ fontWeight: 700, fontSize: 15, color: NAVY, fontFamily: "sans-serif" }}>{p.name}</span>
           </div>
-          <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4 }}>
+          <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 8, WebkitOverflowScrolling: "touch" }}>
             {p.steps.map(([phase, ex, desc], i) => (
-              <div key={i} style={{ flex: "0 0 auto", width: 172, background: "#fff", border: "1px solid #e8e4de", borderRadius: 8, padding: "12px 14px" }}>
+              <div key={i} style={{ flex: "0 0 auto", width: 160, background: "#fff", border: "1px solid #e8e4de", borderRadius: 8, padding: "12px 14px" }}>
                 <div style={{ fontFamily: "sans-serif", fontSize: 10, fontWeight: 700, color: TEAL, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 5 }}>{phase}</div>
                 <div style={{ fontFamily: "sans-serif", fontWeight: 600, fontSize: 12, color: "#222", marginBottom: 5, lineHeight: 1.4 }}>{ex}</div>
                 <div style={{ fontFamily: "sans-serif", fontSize: 11, color: "#999", lineHeight: 1.5 }}>{desc}</div>
@@ -291,7 +329,7 @@ function Progressions() {
       ))}
       <div style={{ background: TEAL_LIGHT, border: `1.5px solid ${TEAL_MID}40`, borderRadius: 10, padding: "18px 20px", marginTop: 8 }}>
         <div style={{ fontFamily: "sans-serif", fontWeight: 700, fontSize: 14, color: TEAL, marginBottom: 8 }}>⛵ Hiking Bench — Laser Simulation Setup</div>
-        <p style={{ fontFamily: "sans-serif", fontSize: 13, color: "#3a6e5a", lineHeight: 1.7, margin: "0 0 14px" }}>Lie flat on a bench. Hook feet under a dumbbell or have a partner hold. Hinge at the hip to 30–45° below bench level — simulating boat hiking. Hold isometrically. Back flat, core braced. This is <em>not</em> a crunch — it's a sustained eccentric hold. Exactly what happens in a Laser in a breeze.</p>
+        <p style={{ fontFamily: "sans-serif", fontSize: 13, color: "#3a6e5a", lineHeight: 1.7, margin: "0 0 14px" }}>Lie flat on a bench. Hook feet under a dumbbell or have a partner hold. Hinge at the hip to 30–45° below bench level — simulating boat hiking. Hold isometrically. Back flat, core braced. This is <em>not</em> a crunch — it's a sustained eccentric hold.</p>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
           {[["Block 1","BW iso holds","3–4 × 45–90 sec"],["Block 2","Weighted vest or DB on chest","3–5 × 45–75 sec + intervals"],["Block 3","BW technique focus","2–3 × 45–60 sec"]].map(([b, setup, rx]) => (
             <div key={b} style={{ background: "#fff", borderRadius: 7, padding: "10px 12px" }}>
@@ -308,34 +346,49 @@ function Progressions() {
 
 // ─── NUTRITION PAGE ──────────────────────────────────────────────────────────
 
-function Nutrition() {
+function Nutrition({ isMobile }) {
   const meals = [["Breakfast","Within 1 hr of waking","30g protein + carbs","3 eggs + Greek yogurt + oats"],["Pre-workout","60–90 min before gym","Carbs + some protein","Banana + peanut butter + milk"],["Post-workout","Within 30–45 min","30–35g protein + fast carbs","Shake + rice cakes or fruit"],["Lunch / Dinner","Regular meal times","Balanced plate","Chicken / fish / eggs + rice + veg"],["Evening snack","Before bed","Slow protein","Cottage cheese or Greek yogurt"]];
   return (
     <div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginBottom: 28 }}>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)", gap: 10, marginBottom: 28 }}>
         {[["Calorie surplus","+200–300/day"],["Protein target","0.8–1g / lb BW"],["Protein per meal","25–35g"],["Meals per day","4–5"]].map(([l, v]) => (
           <div key={l} style={{ background: TEAL_LIGHT, borderRadius: 8, padding: "14px 16px" }}>
             <div style={{ fontFamily: "sans-serif", fontSize: 10, fontWeight: 700, color: TEAL, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 5 }}>{l}</div>
-            <div style={{ fontFamily: "sans-serif", fontSize: 22, fontWeight: 700, color: NAVY }}>{v}</div>
+            <div style={{ fontFamily: "sans-serif", fontSize: isMobile ? 18 : 22, fontWeight: 700, color: NAVY }}>{v}</div>
           </div>
         ))}
       </div>
       <div style={{ fontFamily: "sans-serif", fontWeight: 700, fontSize: 11, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 10 }}>Daily Framework</div>
-      <div style={{ overflowX: "auto", marginBottom: 28 }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-          <thead><tr style={{ background: "#fafaf8" }}>{["Meal","Timing","Target","Example"].map(h => <th key={h} style={TH("left")}>{h}</th>)}</tr></thead>
-          <tbody>{meals.map(([meal, timing, target, ex], i) => (
-            <tr key={meal} style={{ borderBottom: "1px solid #f2efe9", background: i % 2 === 0 ? "#fff" : "#fdfcfb" }}>
-              <td style={{ padding: "9px 14px", fontFamily: "sans-serif", fontWeight: 600, color: "#222" }}>{meal}</td>
-              <td style={{ padding: "9px 14px", fontFamily: "sans-serif", color: "#888" }}>{timing}</td>
-              <td style={{ padding: "9px 14px", fontFamily: "sans-serif", color: TEAL, fontWeight: 600 }}>{target}</td>
-              <td style={{ padding: "9px 14px", fontFamily: "sans-serif", color: "#999", fontSize: 12 }}>{ex}</td>
-            </tr>
-          ))}</tbody>
-        </table>
-      </div>
+      {isMobile ? (
+        <div style={{ marginBottom: 28 }}>
+          {meals.map(([meal, timing, target, ex]) => (
+            <div key={meal} style={{ borderBottom: "1px solid #f2efe9", padding: "12px 0" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                <span style={{ fontFamily: "sans-serif", fontWeight: 700, fontSize: 13, color: "#222" }}>{meal}</span>
+                <span style={{ fontFamily: "sans-serif", fontSize: 12, color: TEAL, fontWeight: 600 }}>{target}</span>
+              </div>
+              <div style={{ fontFamily: "sans-serif", fontSize: 11, color: "#888", marginBottom: 2 }}>{timing}</div>
+              <div style={{ fontFamily: "sans-serif", fontSize: 11, color: "#bbb", fontStyle: "italic" }}>{ex}</div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div style={{ overflowX: "auto", marginBottom: 28 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+            <thead><tr style={{ background: "#fafaf8" }}>{["Meal","Timing","Target","Example"].map(h => <th key={h} style={TH("left")}>{h}</th>)}</tr></thead>
+            <tbody>{meals.map(([meal, timing, target, ex], i) => (
+              <tr key={meal} style={{ borderBottom: "1px solid #f2efe9", background: i % 2 === 0 ? "#fff" : "#fdfcfb" }}>
+                <td style={{ padding: "9px 14px", fontFamily: "sans-serif", fontWeight: 600, color: "#222" }}>{meal}</td>
+                <td style={{ padding: "9px 14px", fontFamily: "sans-serif", color: "#888" }}>{timing}</td>
+                <td style={{ padding: "9px 14px", fontFamily: "sans-serif", color: TEAL, fontWeight: 600 }}>{target}</td>
+                <td style={{ padding: "9px 14px", fontFamily: "sans-serif", color: "#999", fontSize: 12 }}>{ex}</td>
+              </tr>
+            ))}</tbody>
+          </table>
+        </div>
+      )}
       <div style={{ fontFamily: "sans-serif", fontWeight: 700, fontSize: 11, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 10 }}>Supplements</div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 28 }}>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3, 1fr)", gap: 10, marginBottom: 28 }}>
         {[["Creatine monohydrate","3–5g/day with a meal","Significant muscle and strength benefit. No loading needed."],["Protein powder (optional)","Post-workout only","Only if food protein targets can't be met."],["Vitamin D + Omega-3","2,000 IU D3 + 1–2g fish oil","Especially important for sailors on the water."]].map(([n, d, desc]) => (
           <div key={n} style={{ background: "#fff", border: "1px solid #e8e4de", borderRadius: 8, padding: "14px 16px" }}>
             <div style={{ fontFamily: "sans-serif", fontWeight: 700, fontSize: 13, color: NAVY, marginBottom: 5 }}>{n}</div>
@@ -357,12 +410,12 @@ function Nutrition() {
 export default function App() {
   const [blocks, setBlocks] = useState(DEFAULT_BLOCKS);
   const [activeTab, setActiveTab] = useState("overview");
-  const [loadStatus, setLoadStatus] = useState("loading"); // loading | ready | error
-  const [saveStatus, setSaveStatus] = useState("idle");    // idle | saving | saved | error
+  const [loadStatus, setLoadStatus] = useState("loading");
+  const [saveStatus, setSaveStatus] = useState("idle");
   const [savingSet, setSavingSet] = useState(new Set());
   const saveTimer = useRef(null);
+  const isMobile = useIsMobile();
 
-  // Load saved weights from Supabase on mount
   useEffect(() => {
     dbLoad().then(map => {
       if (Object.keys(map).length === 0) { setLoadStatus("ready"); return; }
@@ -385,7 +438,6 @@ export default function App() {
   }, []);
 
   const handleEdit = useCallback(async (blockId, dayId, exIdx, wk, val) => {
-    // Optimistic local update
     setBlocks(prev => prev.map(b =>
       b.id !== blockId ? b : {
         ...b,
@@ -397,12 +449,10 @@ export default function App() {
         )
       }
     ));
-
     const id = makeId(blockId, dayId, exIdx, wk);
     setSavingSet(s => new Set([...s, id]));
     setSaveStatus("saving");
     clearTimeout(saveTimer.current);
-
     try {
       await dbSave(id, blockId, dayId, exIdx, wk, val);
       setSavingSet(s => { const n = new Set(s); n.delete(id); return n; });
@@ -416,12 +466,12 @@ export default function App() {
   }, []);
 
   const TABS = [
-    { id: "overview",      label: "Overview" },
-    { id: "accum",         label: "Block 1 · Accumulation" },
-    { id: "trans",         label: "Block 2 · Transmutation" },
-    { id: "real",          label: "Block 3 · Realization" },
-    { id: "progressions",  label: "Progressions" },
-    { id: "nutrition",     label: "Nutrition" },
+    { id: "overview",     label: isMobile ? "Home"    : "Overview" },
+    { id: "accum",        label: isMobile ? "Block 1" : "Block 1 · Accumulation" },
+    { id: "trans",        label: isMobile ? "Block 2" : "Block 2 · Transmutation" },
+    { id: "real",         label: isMobile ? "Block 3" : "Block 3 · Realization" },
+    { id: "progressions", label: isMobile ? "Progress" : "Progressions" },
+    { id: "nutrition",    label: isMobile ? "Nutrition": "Nutrition" },
   ];
 
   if (loadStatus === "loading") {
@@ -434,51 +484,61 @@ export default function App() {
     );
   }
 
+  const px = isMobile ? "16px" : "32px";
+  const contentPad = isMobile ? "16px 12px 60px" : "32px 24px 60px";
+
   return (
     <div style={{ fontFamily: "Georgia, serif", background: SAND, minHeight: "100vh" }}>
+      <style>{`
+        * { box-sizing: border-box; }
+        ::-webkit-scrollbar { height: 4px; width: 4px; }
+        ::-webkit-scrollbar-thumb { background: #ccc; border-radius: 4px; }
+      `}</style>
+
       {/* Header */}
-      <div style={{ background: NAVY, color: "#fff", padding: "32px 32px 28px" }}>
+      <div style={{ background: NAVY, color: "#fff", padding: isMobile ? "20px 16px 18px" : "32px 32px 28px" }}>
         <div style={{ maxWidth: 980, margin: "0 auto" }}>
-          <div style={{ fontFamily: "sans-serif", fontSize: 10, fontWeight: 800, letterSpacing: "0.18em", textTransform: "uppercase", color: TEAL_MID, marginBottom: 10 }}>⛵ MindBodyBoat · ILCA Laser Program</div>
-          <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 20, flexWrap: "wrap" }}>
-            <div>
-              <h1 style={{ fontSize: 32, fontWeight: 700, margin: "0 0 8px", letterSpacing: "-0.02em", lineHeight: 1.1 }}>Simone's 3-Month<br />Training Plan</h1>
-              <p style={{ fontFamily: "sans-serif", fontSize: 13, color: "#7a9db8", margin: 0 }}>
-                5-day split · 3 progressive blocks · Goal: +5 lbs muscle ·{" "}
-                <span style={{ color: TEAL_MID, fontWeight: 600 }}>Click any value to edit ✏️ · Auto-saves to cloud ☁️</span>
-              </p>
-            </div>
-            <div style={{ display: "flex", gap: 20, fontFamily: "sans-serif", alignItems: "flex-end" }}>
-              {[["Duration","12 weeks"],["Goal","+5 lbs lean"],["Days/wk","5 sessions"]].map(([l, v]) => (
-                <div key={l} style={{ textAlign: "center" }}>
-                  <div style={{ fontSize: 10, color: "#5a8098", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>{l}</div>
-                  <div style={{ fontSize: 16, fontWeight: 700, color: "#fff" }}>{v}</div>
-                </div>
-              ))}
-            </div>
+          <div style={{ fontFamily: "sans-serif", fontSize: 10, fontWeight: 800, letterSpacing: "0.18em", textTransform: "uppercase", color: TEAL_MID, marginBottom: 8 }}>⛵ MindBodyBoat · ILCA Laser Program</div>
+          <h1 style={{ fontSize: isMobile ? 24 : 32, fontWeight: 700, margin: "0 0 8px", letterSpacing: "-0.02em", lineHeight: 1.15 }}>Simone's 3-Month<br />Training Plan</h1>
+          <p style={{ fontFamily: "sans-serif", fontSize: 12, color: "#7a9db8", margin: "0 0 14px" }}>
+            5-day split · 3 blocks · Goal: +5 lbs muscle ·{" "}
+            <span style={{ color: TEAL_MID, fontWeight: 600 }}>Tap any value to edit ✏️</span>
+          </p>
+          <div style={{ display: "flex", gap: isMobile ? 16 : 24, fontFamily: "sans-serif" }}>
+            {[["Duration","12 weeks"],["Goal","+5 lbs lean"],["Days/wk","5 sessions"]].map(([l, v]) => (
+              <div key={l}>
+                <div style={{ fontSize: 9, color: "#5a8098", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 2 }}>{l}</div>
+                <div style={{ fontSize: isMobile ? 14 : 16, fontWeight: 700, color: "#fff" }}>{v}</div>
+              </div>
+            ))}
           </div>
         </div>
       </div>
 
       {/* Sticky nav */}
       <div style={{ background: "#fff", borderBottom: "1px solid #ddd8d0", position: "sticky", top: 0, zIndex: 20, boxShadow: "0 2px 8px rgba(0,0,0,0.05)" }}>
-        <div style={{ maxWidth: 980, margin: "0 auto", display: "flex", alignItems: "center", overflowX: "auto" }}>
+        <div style={{ maxWidth: 980, margin: "0 auto", display: "flex", alignItems: "center", overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
           {TABS.map(t => (
             <button key={t.id} onClick={() => setActiveTab(t.id)} style={{
-              padding: "14px 18px", background: "none", border: "none",
+              padding: isMobile ? "12px 12px" : "14px 18px",
+              background: "none", border: "none",
               borderBottom: `3px solid ${activeTab === t.id ? TEAL : "transparent"}`,
-              fontFamily: "sans-serif", fontSize: 13, fontWeight: activeTab === t.id ? 700 : 400,
-              color: activeTab === t.id ? TEAL : "#999", cursor: "pointer", whiteSpace: "nowrap", transition: "all 0.15s"
+              fontFamily: "sans-serif",
+              fontSize: isMobile ? 12 : 13,
+              fontWeight: activeTab === t.id ? 700 : 400,
+              color: activeTab === t.id ? TEAL : "#999",
+              cursor: "pointer", whiteSpace: "nowrap", transition: "all 0.15s",
+              flexShrink: 0,
             }}>{t.label}</button>
           ))}
-          <div style={{ marginLeft: "auto", paddingRight: 16, flexShrink: 0 }}>
+          <div style={{ marginLeft: "auto", paddingRight: 12, flexShrink: 0 }}>
             <SaveBadge status={saveStatus} />
           </div>
         </div>
       </div>
 
       {loadStatus === "error" && (
-        <div style={{ maxWidth: 980, margin: "16px auto 0", padding: "0 24px" }}>
+        <div style={{ maxWidth: 980, margin: "12px auto 0", padding: `0 ${px}` }}>
           <div style={{ background: CORAL_LIGHT, border: `1px solid ${CORAL}40`, borderRadius: 8, padding: "10px 16px", fontFamily: "sans-serif", fontSize: 13, color: CORAL }}>
             ⚠ Could not connect to database. Edits will not be saved this session.
           </div>
@@ -486,43 +546,51 @@ export default function App() {
       )}
 
       {/* Content */}
-      <div style={{ maxWidth: 980, margin: "0 auto", padding: "32px 24px 60px" }}>
+      <div style={{ maxWidth: 980, margin: "0 auto", padding: contentPad }}>
 
         {/* OVERVIEW */}
         {activeTab === "overview" && (
           <div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 28 }}>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3, 1fr)", gap: 12, marginBottom: 20 }}>
               {blocks.map(b => (
                 <div key={b.id} onClick={() => setActiveTab(b.id)}
-                  style={{ background: "#fff", border: `2px solid ${b.color}20`, borderRadius: 12, padding: "20px 22px", cursor: "pointer", transition: "all 0.15s", boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}
-                  onMouseEnter={e => { e.currentTarget.style.borderColor = b.color; e.currentTarget.style.boxShadow = `0 4px 16px ${b.color}22`; }}
-                  onMouseLeave={e => { e.currentTarget.style.borderColor = `${b.color}20`; e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.04)"; }}>
-                  <div style={{ fontFamily: "sans-serif", display: "inline-block", background: b.colorLight, color: b.color, padding: "3px 10px", borderRadius: 999, fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>{b.weeks}</div>
-                  <div style={{ fontWeight: 700, fontSize: 17, color: NAVY, marginBottom: 6 }}>{b.label.split("·")[1].trim()}</div>
-                  <div style={{ fontFamily: "sans-serif", fontSize: 12, color: "#888", lineHeight: 1.6, marginBottom: 14 }}>{b.theme}</div>
-                  <div style={{ fontFamily: "sans-serif", display: "flex", flexDirection: "column", gap: 4 }}>
-                    {[["🏋️", b.gymVol],["🚴", b.cardio],["⛵", b.laserSim]].map(([icon, val]) => (
-                      <div key={val} style={{ fontSize: 11, color: "#aaa" }}><span style={{ marginRight: 5 }}>{icon}</span>{val}</div>
-                    ))}
+                  style={{ background: "#fff", border: `2px solid ${b.color}20`, borderRadius: 12, padding: isMobile ? "16px" : "20px 22px", cursor: "pointer", transition: "all 0.15s", boxShadow: "0 2px 8px rgba(0,0,0,0.04)", display: isMobile ? "flex" : "block", alignItems: isMobile ? "center" : "flex-start", gap: isMobile ? 12 : 0 }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = b.color; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = `${b.color}20`; }}>
+                  <div style={{ flex: isMobile ? "0 0 auto" : undefined }}>
+                    <div style={{ fontFamily: "sans-serif", display: "inline-block", background: b.colorLight, color: b.color, padding: "3px 10px", borderRadius: 999, fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: isMobile ? 0 : 10 }}>{b.weeks}</div>
                   </div>
-                  <div style={{ fontFamily: "sans-serif", marginTop: 14, fontSize: 11, color: b.color, fontWeight: 600 }}>View program →</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 700, fontSize: isMobile ? 14 : 17, color: NAVY, marginBottom: 4, marginTop: isMobile ? 0 : 6 }}>{b.label.split("·")[1].trim()}</div>
+                    {!isMobile && <div style={{ fontFamily: "sans-serif", fontSize: 12, color: "#888", lineHeight: 1.6, marginBottom: 14 }}>{b.theme}</div>}
+                    {!isMobile && (
+                      <div style={{ fontFamily: "sans-serif", display: "flex", flexDirection: "column", gap: 4 }}>
+                        {[["🏋️", b.gymVol],["🚴", b.cardio],["⛵", b.laserSim]].map(([icon, val]) => (
+                          <div key={val} style={{ fontSize: 11, color: "#aaa" }}><span style={{ marginRight: 5 }}>{icon}</span>{val}</div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ fontFamily: "sans-serif", fontSize: 11, color: b.color, fontWeight: 600, marginTop: isMobile ? 0 : 14, flexShrink: 0 }}>→</div>
                 </div>
               ))}
             </div>
-            <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e8e4de", padding: "22px 26px", marginBottom: 16 }}>
-              <div style={{ fontFamily: "sans-serif", fontWeight: 700, fontSize: 11, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 16 }}>5-Day Weekly Template</div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 10 }}>
-                {[["Mon","Power + Upper Pull",TEAL],["Tue","Lower + Plyometrics",TEAL],["Wed","Cardio + Recovery","#aaa"],["Thu","Upper Push + Accessories",TEAL],["Fri","Full Body Integration",TEAL]].map(([day, focus, color]) => (
-                  <div key={day} style={{ background: SAND, borderRadius: 8, padding: "12px 14px", textAlign: "center", borderTop: `3px solid ${color}` }}>
-                    <div style={{ fontFamily: "sans-serif", fontWeight: 700, fontSize: 14, color: NAVY, marginBottom: 5 }}>{day}</div>
-                    <div style={{ fontFamily: "sans-serif", fontSize: 11, color: "#777", lineHeight: 1.4 }}>{focus}</div>
+
+            <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e8e4de", padding: isMobile ? "16px" : "22px 26px", marginBottom: 14 }}>
+              <div style={{ fontFamily: "sans-serif", fontWeight: 700, fontSize: 11, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 14 }}>5-Day Weekly Template</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: isMobile ? 6 : 10 }}>
+                {[["Mon","Power + Upper Pull",TEAL],["Tue","Lower + Plyo",TEAL],["Wed","Cardio","#aaa"],["Thu","Upper Push",TEAL],["Fri","Full Body",TEAL]].map(([day, focus, color]) => (
+                  <div key={day} style={{ background: SAND, borderRadius: 8, padding: isMobile ? "8px 6px" : "12px 14px", textAlign: "center", borderTop: `3px solid ${color}` }}>
+                    <div style={{ fontFamily: "sans-serif", fontWeight: 700, fontSize: isMobile ? 12 : 14, color: NAVY, marginBottom: 4 }}>{day}</div>
+                    <div style={{ fontFamily: "sans-serif", fontSize: isMobile ? 10 : 11, color: "#777", lineHeight: 1.3 }}>{focus}</div>
                   </div>
                 ))}
               </div>
-              <div style={{ fontFamily: "sans-serif", textAlign: "center", fontSize: 11, color: "#bbb", marginTop: 12 }}>Sat + Sun = sailing · active recovery · social</div>
+              <div style={{ fontFamily: "sans-serif", textAlign: "center", fontSize: 11, color: "#bbb", marginTop: 10 }}>Sat + Sun = sailing · recovery · social</div>
             </div>
-            <div style={{ background: "#e8f7f1", border: `1.5px solid ${TEAL_MID}50`, borderRadius: 10, padding: "14px 18px", fontFamily: "sans-serif", fontSize: 13, color: TEAL }}>
-              ✏️ <strong>All weights and values are editable.</strong> Click any cell in the week columns to type a new value. Changes auto-save to Supabase instantly — they'll be here next time Simone opens the page.
+
+            <div style={{ background: "#e8f7f1", border: `1.5px solid ${TEAL_MID}50`, borderRadius: 10, padding: "14px 16px", fontFamily: "sans-serif", fontSize: 13, color: TEAL }}>
+              ✏️ <strong>All values are editable.</strong> Tap any week cell to update. Auto-saves to cloud ☁️
             </div>
           </div>
         )}
@@ -533,38 +601,39 @@ export default function App() {
           const wed = WED[activeTab];
           return (
             <div>
-              <div style={{ background: "#fff", border: `1.5px solid ${b.color}30`, borderLeft: `5px solid ${b.color}`, borderRadius: 12, padding: "18px 24px", marginBottom: 24 }}>
-                <div style={{ fontFamily: "sans-serif", display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", marginBottom: 10 }}>
+              <div style={{ background: "#fff", border: `1.5px solid ${b.color}30`, borderLeft: `5px solid ${b.color}`, borderRadius: 12, padding: isMobile ? "14px 16px" : "18px 24px", marginBottom: 18 }}>
+                <div style={{ fontFamily: "sans-serif", display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 8 }}>
                   <span style={{ background: b.colorLight, color: b.color, padding: "3px 12px", borderRadius: 999, fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em" }}>{b.weeks}</span>
-                  <span style={{ fontWeight: 700, fontSize: 16, color: NAVY }}>{b.theme}</span>
+                  <span style={{ fontWeight: 700, fontSize: isMobile ? 14 : 16, color: NAVY }}>{b.theme}</span>
                 </div>
-                <div style={{ fontFamily: "sans-serif", display: "flex", gap: 28, flexWrap: "wrap" }}>
+                <div style={{ fontFamily: "sans-serif", display: "flex", gap: isMobile ? 14 : 28, flexWrap: "wrap" }}>
                   {[["🏋️ Gym", b.gymVol],["🚴 Cardio", b.cardio],["⛵ Laser", b.laserSim]].map(([l, v]) => (
-                    <div key={l}><span style={{ fontSize: 11, fontWeight: 700, color: "#bbb", textTransform: "uppercase", letterSpacing: "0.05em" }}>{l} </span><span style={{ fontSize: 13, color: "#555" }}>{v}</span></div>
+                    <div key={l} style={{ fontSize: isMobile ? 12 : 13 }}><span style={{ fontSize: 11, fontWeight: 700, color: "#bbb", textTransform: "uppercase", letterSpacing: "0.05em" }}>{l} </span><span style={{ color: "#555" }}>{v}</span></div>
                   ))}
                 </div>
               </div>
 
               {b.days.map(day => (
-                <div key={day.id} style={{ background: "#fff", border: "1px solid #e8e4de", borderRadius: 12, marginBottom: 18, overflow: "hidden", boxShadow: "0 2px 8px rgba(0,0,0,0.03)" }}>
-                  <div style={{ background: b.color, color: "#fff", padding: "12px 20px", display: "flex", alignItems: "center", gap: 10 }}>
-                    <span style={{ fontFamily: "sans-serif", fontWeight: 800, fontSize: 15 }}>{day.label}</span>
-                    <span style={{ opacity: 0.7 }}>·</span>
-                    <span style={{ fontFamily: "sans-serif", fontSize: 13, opacity: 0.85 }}>{day.focus}</span>
+                <div key={day.id} style={{ background: "#fff", border: "1px solid #e8e4de", borderRadius: 12, marginBottom: 16, overflow: "hidden", boxShadow: "0 2px 8px rgba(0,0,0,0.03)" }}>
+                  <div style={{ background: b.color, color: "#fff", padding: isMobile ? "10px 14px" : "12px 20px", display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontFamily: "sans-serif", fontWeight: 800, fontSize: isMobile ? 14 : 15 }}>{day.label}</span>
+                    <span style={{ opacity: 0.6 }}>·</span>
+                    <span style={{ fontFamily: "sans-serif", fontSize: isMobile ? 12 : 13, opacity: 0.85 }}>{day.focus}</span>
                   </div>
                   <ExerciseTable
                     exercises={day.exercises} blockColor={b.color}
                     blockId={b.id} dayId={day.id}
                     onEdit={handleEdit} savingSet={savingSet}
+                    isMobile={isMobile}
                   />
                 </div>
               ))}
 
               <div style={{ background: "#fff", border: "1px solid #e8e4de", borderRadius: 12, overflow: "hidden" }}>
-                <div style={{ background: "#777", color: "#fff", padding: "12px 20px" }}>
-                  <span style={{ fontFamily: "sans-serif", fontWeight: 800, fontSize: 15 }}>{wed.title}</span>
+                <div style={{ background: "#777", color: "#fff", padding: isMobile ? "10px 14px" : "12px 20px" }}>
+                  <span style={{ fontFamily: "sans-serif", fontWeight: 800, fontSize: isMobile ? 13 : 15 }}>{wed.title}</span>
                 </div>
-                <div style={{ padding: "18px 20px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div style={{ padding: isMobile ? "14px" : "18px 20px", display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: isMobile ? 10 : 12 }}>
                   {wed.items.map(([label, desc]) => (
                     <div key={label} style={{ fontFamily: "sans-serif", fontSize: 13, color: "#555" }}>
                       <span style={{ fontWeight: 700, color: "#333" }}>{label}:</span> {desc}
@@ -577,20 +646,20 @@ export default function App() {
         })()}
 
         {activeTab === "progressions" && (
-          <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e8e4de", padding: "28px" }}>
+          <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e8e4de", padding: isMobile ? "16px" : "28px" }}>
             <Progressions />
           </div>
         )}
 
         {activeTab === "nutrition" && (
-          <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e8e4de", padding: "28px" }}>
-            <Nutrition />
+          <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e8e4de", padding: isMobile ? "16px" : "28px" }}>
+            <Nutrition isMobile={isMobile} />
           </div>
         )}
       </div>
 
       <div style={{ fontFamily: "sans-serif", textAlign: "center", fontSize: 11, color: "#c0bab0", paddingBottom: 32 }}>
-        Simone · ILCA Laser · MindBodyBoat · All loads RPE-based · Powered by Supabase ☁️
+        Simone · ILCA Laser · MindBodyBoat · Powered by Supabase ☁️
       </div>
     </div>
   );
