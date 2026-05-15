@@ -52,7 +52,7 @@ body: JSON.stringify({ id, block_id, day_id, exercise_index, week, value, update
 }
 
 async function dbLoadCompletions() {
-const res = await fetch(`${SUPABASE_URL}/rest/v1/workout_completions?select=*&order=completed_at.desc`, {
+const res = await fetch(`${SUPABASE_URL}/rest/v1/simone_completions?select=*&order=completed_at.desc`, {
 headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
 });
 if (!res.ok) return [];
@@ -61,7 +61,7 @@ return res.json();
 
 async function dbSaveCompletion(blockId, dayId, blockLabel, dayLabel) {
 const id = `${blockId}__${dayId}__${Date.now()}`;
-await fetch(`${SUPABASE_URL}/rest/v1/workout_completions`, {
+await fetch(`${SUPABASE_URL}/rest/v1/simone_completions`, {
 method: "POST",
 headers: {
 apikey: SUPABASE_KEY,
