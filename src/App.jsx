@@ -328,14 +328,15 @@ return (
 
 // ─── COMPLETE BUTTON ─────────────────────────────────────────────────────────
 
-function CompleteButton({ blockId, dayId, blockLabel, dayLabel, onComplete, isMobile }) {
-const [status, setStatus] = useState("idle");
+function CompleteButton({ blockId, dayId, blockLabel, dayLabel, onComplete, isMobile, completedToday }) {
+const [status, setStatus] = useState(completedToday ? "done" : "idle");
+useEffect(() => { setStatus(completedToday ? "done" : "idle"); }, [completedToday]);
 const handleClick = async () => {
+if (status === "done") return;
 setStatus("saving");
 await dbSaveCompletion(blockId, dayId, blockLabel, dayLabel);
 setStatus("done");
 onComplete();
-setTimeout(() => setStatus("idle"), 3000);
 };
 return (
 <button
@@ -755,6 +756,7 @@ blockLabel={b.label}
 dayLabel={`${day.label} · ${day.focus}`}
 onComplete={reloadCompletions}
 isMobile={isMobile}
+completedToday={completions.some(c => c.block_id === b.id && c.day_id === day.id && new Date(c.completed_at).toDateString() === new Date().toDateString())}
 />
 </div>
 <ExerciseTable
