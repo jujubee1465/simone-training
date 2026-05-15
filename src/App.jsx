@@ -465,20 +465,28 @@ return (
 // ─── COMPLETED WORKOUTS PAGE ─────────────────────────────────────────────────
 
 function CompletedPage({ completions, isMobile }) {
-const grouped = {};
+// Deduplicate: one entry per block+day per calendar date (keep latest)
+const seen = new Map();
 for (const c of completions) {
+const dateKey = new Date(c.completed_at).toDateString();
+const key = c.block_id + '__' + c.day_id + '__' + dateKey;
+if (!seen.has(key)) seen.set(key, c);
+}
+const deduped = Array.from(seen.values()).sort((a, b) => new Date(b.completed_at) - new Date(a.completed_at));
+const grouped = {};
+for (const c of deduped) {
 const date = new Date(c.completed_at).toLocaleDateString("en-US", { weekday: "short", year: "numeric", month: "short", day: "numeric" });
 if (!grouped[date]) grouped[date] = [];
 grouped[date].push(c);
 }
-const thisWeekCount = completions.filter(c => {
+const thisWeekCount = deduped.filter(c => {
 const d = new Date(c.completed_at);
 const now = new Date();
 const weekAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);
 return d >= weekAgo;
 }).length;
 const streakDays = (() => {
-const days = [...new Set(completions.map(c => new Date(c.completed_at).toDateString()))].sort((a, b) => new Date(b) - new Date(a));
+const days = [...new Set(deduped.map(c => new Date(c.completed_at).toDateString()))].sort((a, b) => new Date(b) - new Date(a));
 let streak = 0;
 let prev = new Date();
 prev.setHours(23, 59, 59, 999);
@@ -501,7 +509,7 @@ return (
 return (
 <div>
 <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2,1fr)" : "repeat(3,1fr)", gap: 10, marginBottom: 24 }}>
-{[["Total sessions", completions.length], ["This week", thisWeekCount], ["Day streak 🔥", streakDays]].map(([label, val]) => (
+{[["Total sessions", deduped.length], ["This week", thisWeekCount], ["Day streak 🔥", streakDays]].map(([label, val]) => (
 <div key={label} style={{ background: TEAL_LIGHT, borderRadius: 8, padding: "14px 16px" }}>
 <div style={{ fontFamily: "sans-serif", fontSize: 10, fontWeight: 700, color: TEAL, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 5 }}>{label}</div>
 <div style={{ fontFamily: "sans-serif", fontSize: 28, fontWeight: 700, color: NAVY }}>{val}</div>
